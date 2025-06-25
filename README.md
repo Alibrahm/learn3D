@@ -1,4 +1,4 @@
-# Aza 3D Teaching Platform
+# 3D Teaching Platform
 
 A modern, interactive 3D teaching platform built with Next.js, Three.js, and Supabase. This platform provides an immersive learning experience for 3D modeling and design, with features for both students and teachers.
 ![image](https://github.com/user-attachments/assets/cbe00a3c-60e2-476f-83fe-c52c61f39088)
