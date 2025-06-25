@@ -14,6 +14,7 @@ import { ShapeBuilder } from "@/components/shape-builder"
 import { AdvancedShapeBuilder } from "@/components/advanced-shape-builder"
 import { ProjectGallery } from "@/components/project-gallery"
 import { DebugPanel } from "@/components/debug-panel"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LucideUser, GraduationCap } from "lucide-react"
@@ -616,7 +617,7 @@ export default function TeachingApp() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-[#4662c2] flex items-center justify-center">
         <Card>
           <CardContent className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
