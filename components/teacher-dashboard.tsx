@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import { Footer } from "@/components/footer"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -613,6 +613,7 @@ export function TeacherDashboard({ currentUser }: TeacherDashboardProps) {
           </Card>
         </TabsContent>
       </Tabs>
+      <Footer />
     </div>
   )
 }
