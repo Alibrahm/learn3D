@@ -12,6 +12,8 @@ A modern, interactive 3D teaching platform built with Next.js, Three.js, and Sup
 - Model library with examples
 - Personal dashboard with achievements
 - Real-time model rendering and manipulation
+![image](https://github.com/user-attachments/assets/d2c03794-afa2-4fa9-95f8-f199e0edb9d2)
+
 
 ### For Teachers
 - Course creation and management
