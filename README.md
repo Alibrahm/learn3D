@@ -8,6 +8,8 @@ A modern, interactive 3D teaching platform built with Next.js, Three.js, and Sup
 ### For Students
 - Interactive 3D model viewer with STL file support
 - Progress tracking and course completion
+![image](https://github.com/user-attachments/assets/17030fcd-6725-4b90-a97b-1514a64b7bdf)
+
 - Exercise and lesson system
 - Model library with examples
 - Personal dashboard with achievements
