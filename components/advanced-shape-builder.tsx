@@ -163,13 +163,10 @@ const colorPalette = [
 // ==================================================================
 //               COMPLETE DRAWING PREVIEW COMPONENT
 // ==================================================================
-function DrawingPreview({ path }: { path: [number, number][] }) {
-  // Convert the 2D path array into an array of THREE.Vector3 objects for rendering.
-  // We add a small z-offset (0.01) to ensure the preview line renders slightly
-  // in front of the grid, preventing any visual glitches (z-fighting).
-  const points = useMemo(() => path.map(p => new THREE.Vector3(p[0], p[1], 0.01)), [path])
+function DrawingPreview({ path }: { path: [number, number, number][] }) { // <-- FIX 1: Expect 3D path
+  // --- FIX 2: Create Vector3 directly from the 3D path points ---
+  const points = useMemo(() => path.map(p => new THREE.Vector3(...p)), [path])
 
-  // If there are no points in the path, render nothing.
   if (points.length === 0) {
     return null
   }
@@ -197,17 +194,36 @@ function DrawingPreview({ path }: { path: [number, number][] }) {
 }
 // ==================================================================
 
-
 function Shape3DComponent({
   shape,
   isSelected,
   onSelect,
+  // +++ ADD NEW PROPS +++
+  drawingMode,
+  onDrawClick,
 }: {
   shape: Shape3D
   isSelected: boolean
   onSelect: () => void
+  // +++ ADD NEW PROP TYPES +++
+  drawingMode: boolean
+  onDrawClick: (point: THREE.Vector3) => void
 }) {
   const meshRef = useRef<THREE.Mesh>(null)
+
+  // +++ ADD A UNIFIED CLICK HANDLER +++
+  const handlePointerDown = (event: THREE.Event) => {
+    // Stop the event from bubbling up to the canvas
+    event.stopPropagation();
+
+    if (drawingMode) {
+      // In drawing mode, call the onDrawClick callback with the 3D point of intersection
+      if (onDrawClick) onDrawClick((event as any).point);
+    } else {
+      // In normal mode, select the shape
+      onSelect();
+    }
+  };
 
   useFrame(() => {
     if (meshRef.current && isSelected) {
@@ -342,8 +358,9 @@ function Shape3DComponent({
       ref={meshRef}
       position={shape.position}
       rotation={shape.rotation}
+      onPointerDown={handlePointerDown}
       scale={shape.scale}
-      onClick={onSelect}
+      // onClick={onSelect}
       castShadow
       receiveShadow
       geometry={geometry} // <-- Use the geometry object here
@@ -405,13 +422,33 @@ function createParametricGeometry(equation: string, params: Record<string, numbe
   return geometry
 }
 
-function createExtrudedGeometry(path: [number, number][], depth: number) {
+// function createExtrudedGeometry(path: [number, number][], depth: number) {
+//   const shape = new THREE.Shape()
+
+//   if (path.length > 0) {
+//     shape.moveTo(path[0][0], path[0][1])
+//     for (let i = 1; i < path.length; i++) {
+//       shape.lineTo(path[i][0], path[i][1])
+//     }
+//     shape.closePath()
+//   }
+
+//   const extrudeSettings = {
+//     depth: depth,
+//     bevelEnabled: false,
+//   }
+
+//   return new THREE.ExtrudeGeometry(shape, extrudeSettings)
+// }
+
+function createExtrudedGeometry(path3D: [number, number, number][], depth: number) {
   const shape = new THREE.Shape()
 
-  if (path.length > 0) {
-    shape.moveTo(path[0][0], path[0][1])
-    for (let i = 1; i < path.length; i++) {
-      shape.lineTo(path[i][0], path[i][1])
+  if (path3D.length > 0) {
+    // Take only X and Y coordinates for the 2D shape
+    shape.moveTo(path3D[0][0], path3D[0][1])
+    for (let i = 1; i < path3D.length; i++) {
+      shape.lineTo(path3D[i][0], path3D[i][1])
     }
     shape.closePath()
   }
@@ -496,7 +533,8 @@ function Scene({
   // +++ ADD NEW PROPS +++
   drawingMode,
   drawingPath,
-  onGridClick,
+  // --- RENAME onGridClick to onDrawClick ---
+  onDrawClick,
 }: {
   shapes: Shape3D[]
   selectedShapeId: string | null
@@ -504,8 +542,9 @@ function Scene({
   lighting: LightConfig
   // +++ ADD NEW PROP TYPES +++
   drawingMode: boolean
-  drawingPath: [number, number][]
-  onGridClick: (point: THREE.Vector3) => void
+  // --- FIX: Update the type definition for drawingPath ---
+  drawingPath: [number, number, number][]
+  onDrawClick: (point: THREE.Vector3) => void
 }) {
   return (
     <>
@@ -530,6 +569,8 @@ function Scene({
           shape={shape}
           isSelected={selectedShapeId === shape.id}
           onSelect={() => onShapeSelect(shape.id)}
+          drawingMode={drawingMode}
+          onDrawClick={onDrawClick}
         />
       ))}
 
@@ -541,23 +582,38 @@ function Scene({
   giving us the exact 3D coordinates on the XY plane.
 */}
 
-      {drawingMode && (
+      {/* {drawingMode && (
         <mesh
           position={[0, 0, 0]}
           onClick={(e) => {
             // Prevent click from bubbling up and deselecting shapes
             e.stopPropagation()
-            if (onGridClick) onGridClick(e.point)
+            if (onDrawClick) onDrawClick(e.point)
           }}
           visible={false} // Make the plane invisible
         >
           <planeGeometry args={[100, 100]} />
           <meshBasicMaterial />
         </mesh>
-      )}
-     <Grid
+      )} */}
+         {drawingMode && (
+      <mesh
+        position={[0, 0, 0]} // Adjust Z if your grid is at a different Z-level
+        rotation={[-Math.PI / 2, 0, 0]} // Rotate to be horizontal (XY plane)
+        onClick={(e) => {
+          e.stopPropagation() // Prevent click from bubbling up and deselecting shapes
+          // The event.point will be the intersection on THIS plane
+          if (onDrawClick) onDrawClick(e.point)
+        }}
+        visible={false} // Make the plane invisible
+      >
+        <planeGeometry args={[100, 100]} /> {/* Large enough to cover your scene */}
+        <meshBasicMaterial /> {/* This material is fine for an invisible mesh */}
+      </mesh>
+    )}
+      <Grid
         args={[20, 20]}
-        position={[0, 0, -0.01]} 
+        position={[0, 0, -0.01]}
         cellSize={0.5}
         cellThickness={0.5}
         cellColor="#6b7280"
@@ -583,7 +639,10 @@ export function AdvancedShapeBuilder() {
     point: { intensity: 0.3, color: "#ffffff", position: [-10, -10, -10] },
   })
   const [drawingMode, setDrawingMode] = useState(false)
-  const [drawingPath, setDrawingPath] = useState<[number, number][]>([])
+  // const [drawingPath, setDrawingPath] = useState<[number, number][]>([])
+  // --- FIX 1: Update state to hold 3D coordinates ---
+  const [drawingPath, setDrawingPath] = useState<[number, number, number][]>([])
+
   const [parametricEquation, setParametricEquation] = useState("sin(x) * cos(y)")
   const [customVertices, setCustomVertices] = useState("")
   //@ts-ignore
@@ -823,14 +882,21 @@ export function AdvancedShapeBuilder() {
     }
   }
 
-    // +++ ADD NEW onGridClick HANDLER +++
-    const handleGridClick = (point: THREE.Vector3) => {
-      if (!drawingMode) return
-      // Add the x and y coordinates of the click to our drawing path
-      setDrawingPath([...drawingPath, [point.x, point.y]])
-    }
-  
- // +++ ADD useEffect TO MANAGE CONTROLS +++
+  // +++ ADD NEW onGridClick HANDLER +++
+  // const handleGridClick = (point: THREE.Vector3) => {
+  //   if (!drawingMode) return
+  //   // Add the x and y coordinates of the click to our drawing path
+  //   setDrawingPath([...drawingPath, [point.x, point.y]])
+  // }
+
+  // --- FIX 2: Rename handler and save the full 3D point ---
+  const handleDrawClick = (point: THREE.Vector3) => {
+    if (!drawingMode) return
+    // Save the point's [x, y, z] coordinates
+    setDrawingPath([...drawingPath, point.toArray()])
+  }
+
+  // +++ ADD useEffect TO MANAGE CONTROLS +++
   // This disables camera rotation/panning while drawing, which is more intuitive.
   useEffect(() => {
     if (controlsRef.current) {
@@ -889,7 +955,7 @@ export function AdvancedShapeBuilder() {
                       lighting={lighting}
                       drawingMode={drawingMode}
                       drawingPath={drawingPath}
-                      onGridClick={handleGridClick}
+                      onDrawClick={handleDrawClick}
                     />
                   </Suspense>
                   <OrbitControls
