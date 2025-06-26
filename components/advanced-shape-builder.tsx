@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, Suspense } from "react"
+import { useState, useRef, Suspense, useMemo, useEffect } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { OrbitControls, Environment, Grid } from "@react-three/drei"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Line, Points } from "@react-three/drei"
 import {
   CuboidIcon as Cube,
   Circle,
@@ -159,6 +160,44 @@ const colorPalette = [
   "#fbbf24",
 ]
 
+// ==================================================================
+//               COMPLETE DRAWING PREVIEW COMPONENT
+// ==================================================================
+function DrawingPreview({ path }: { path: [number, number][] }) {
+  // Convert the 2D path array into an array of THREE.Vector3 objects for rendering.
+  // We add a small z-offset (0.01) to ensure the preview line renders slightly
+  // in front of the grid, preventing any visual glitches (z-fighting).
+  const points = useMemo(() => path.map(p => new THREE.Vector3(p[0], p[1], 0.01)), [path])
+
+  // If there are no points in the path, render nothing.
+  if (points.length === 0) {
+    return null
+  }
+
+  // Render the preview elements
+  return (
+    <>
+      {/* Render a line that connects all the points in the path. */}
+      <Line
+        points={points}       // The array of 3D points to connect
+        color="#fbbf24"      // A bright yellow color for high visibility
+        lineWidth={2}         // A thin line width
+        dashed={false}        // A solid line
+      />
+      {/* Render a visible dot at each point's location. */}
+      <Points positions={points}>
+        <pointsMaterial
+          color="#fbbf24"      // Match the line color
+          size={10}             // The size of the point in pixels
+          sizeAttenuation={false} // Ensures points stay the same size regardless of camera zoom
+        />
+      </Points>
+    </>
+  )
+}
+// ==================================================================
+
+
 function Shape3DComponent({
   shape,
   isSelected,
@@ -176,116 +215,97 @@ function Shape3DComponent({
     }
   })
 
-  const getGeometry = () => {
+  // 1. Create and memoize the actual THREE.Geometry object
+  const geometry = useMemo(() => {
     const params = shape.parameters || {}
 
     switch (shape.type) {
       case "box":
-        return (
-          <boxGeometry
-            args={[
-              params.width ?? 1,
-              params.height ?? 1,
-              params.depth ?? 1,
-              params.widthSegments ?? 1,
-              params.heightSegments ?? 1,
-              params.depthSegments ?? 1,
-            ]}
-          />
+        return new THREE.BoxGeometry(
+          params.width ?? 1,
+          params.height ?? 1,
+          params.depth ?? 1,
+          params.widthSegments ?? 1,
+          params.heightSegments ?? 1,
+          params.depthSegments ?? 1
         )
       case "sphere":
-        return (
-          <sphereGeometry
-            args={[
-              params.radius ?? 0.5,
-              params.widthSegments ?? 32,
-              params.heightSegments ?? 16,
-              params.phiStart ?? 0,
-              params.phiLength ?? Math.PI * 2,
-              params.thetaStart ?? 0,
-              params.thetaLength ?? Math.PI,
-            ]}
-          />
+        return new THREE.SphereGeometry(
+          params.radius ?? 0.5,
+          params.widthSegments ?? 32,
+          params.heightSegments ?? 16,
+          params.phiStart ?? 0,
+          params.phiLength ?? Math.PI * 2,
+          params.thetaStart ?? 0,
+          params.thetaLength ?? Math.PI
         )
       case "cylinder":
-        return (
-          <cylinderGeometry
-            args={[
-              params.radiusTop ?? 0.5,
-              params.radiusBottom ?? 0.5,
-              params.height ?? 1,
-              params.radialSegments ?? 32,
-              params.heightSegments ?? 1,
-              !!params.openEnded,
-              params.thetaStart ?? 0,
-              params.thetaLength ?? Math.PI * 2,
-            ]}
-          />
+        return new THREE.CylinderGeometry(
+          params.radiusTop ?? 0.5,
+          params.radiusBottom ?? 0.5,
+          params.height ?? 1,
+          params.radialSegments ?? 32,
+          params.heightSegments ?? 1,
+          !!params.openEnded,
+          params.thetaStart ?? 0,
+          params.thetaLength ?? Math.PI * 2
         )
       case "cone":
-        return (
-          <coneGeometry
-            args={[
-              params.radius ?? 0.5,
-              params.height ?? 1,
-              params.radialSegments ?? 32,
-              params.heightSegments ?? 1,
-              !!params.openEnded,
-              params.thetaStart ?? 0,
-              params.thetaLength ?? Math.PI * 2,
-            ]}
-          />
+        return new THREE.ConeGeometry(
+          params.radius ?? 0.5,
+          params.height ?? 1,
+          params.radialSegments ?? 32,
+          params.heightSegments ?? 1,
+          !!params.openEnded,
+          params.thetaStart ?? 0,
+          params.thetaLength ?? Math.PI * 2
         )
       case "plane":
-        return (
-          <planeGeometry
-            args={[params.width ?? 1, params.height ?? 1, params.widthSegments ?? 1, params.heightSegments ?? 1]}
-          />
+        return new THREE.PlaneGeometry(
+          params.width ?? 1,
+          params.height ?? 1,
+          params.widthSegments ?? 1,
+          params.heightSegments ?? 1
         )
       case "torus":
-        return (
-          <torusGeometry
-            args={[
-              params.radius ?? 0.5,
-              params.tube ?? 0.2,
-              params.radialSegments ?? 16,
-              params.tubularSegments ?? 100,
-              params.arc ?? Math.PI * 2,
-            ]}
-          />
+        return new THREE.TorusGeometry(
+          params.radius ?? 0.5,
+          params.tube ?? 0.2,
+          params.radialSegments ?? 16,
+          params.tubularSegments ?? 100,
+          params.arc ?? Math.PI * 2
         )
       case "custom":
         if (shape.customData?.vertices && shape.customData?.faces) {
-          const geometry = new THREE.BufferGeometry()
-          geometry.setAttribute("position", new THREE.Float32BufferAttribute(shape.customData.vertices, 3))
+          const customGeometry = new THREE.BufferGeometry()
+          customGeometry.setAttribute("position", new THREE.Float32BufferAttribute(shape.customData.vertices, 3))
           if (shape.customData.faces.length > 0) {
-            geometry.setIndex(shape.customData.faces)
+            customGeometry.setIndex(shape.customData.faces)
           }
-          geometry.computeVertexNormals()
-          return <primitive object={geometry} />
+          customGeometry.computeVertexNormals()
+          return customGeometry
         }
-        return <boxGeometry args={[1, 1, 1]} />
+        return new THREE.BoxGeometry(1, 1, 1)
       case "parametric":
         if (shape.customData?.equation) {
           try {
-            const geometry = createParametricGeometry(shape.customData.equation, params)
-            return <primitive object={geometry} />
+            return createParametricGeometry(shape.customData.equation, params)
           } catch (error) {
             console.error("Error creating parametric geometry:", error)
-            return <boxGeometry args={[1, 1, 1]} />
+            return new THREE.BoxGeometry(1, 1, 1)
           }
         }
-        return <boxGeometry args={[1, 1, 1]} />
+        return new THREE.BoxGeometry(1, 1, 1)
       case "extruded":
         if (shape.customData?.path && shape.customData.path.length > 0) {
-          const geometry = createExtrudedGeometry(shape.customData.path, params.depth ?? 0.1)
-          return <primitive object={geometry} />
+          return createExtrudedGeometry(shape.customData.path, params.depth ?? 0.1)
         }
-        return <boxGeometry args={[1, 1, 1]} />
+        return new THREE.BoxGeometry(1, 1, 1)
       default:
-        return <boxGeometry args={[1, 1, 1]} />
+        return new THREE.BoxGeometry(1, 1, 1)
     }
-  }
+  }, [shape]) // The geometry will only update if the shape prop changes
+
 
   const getMaterial = () => {
     const mat = shape.material || {
@@ -326,12 +346,13 @@ function Shape3DComponent({
       onClick={onSelect}
       castShadow
       receiveShadow
+      geometry={geometry} // <-- Use the geometry object here
     >
-      {getGeometry()}
       {getMaterial()}
       {isSelected && (
         <lineSegments>
-          <edgesGeometry args={[getGeometry()]} />
+          {/* Now this gets a valid THREE.Geometry object, fixing the error */}
+          <edgesGeometry args={[geometry]} />
           <lineBasicMaterial color="#ffff00" linewidth={2} />
         </lineSegments>
       )}
@@ -472,11 +493,19 @@ function Scene({
   selectedShapeId,
   onShapeSelect,
   lighting,
+  // +++ ADD NEW PROPS +++
+  drawingMode,
+  drawingPath,
+  onGridClick,
 }: {
   shapes: Shape3D[]
   selectedShapeId: string | null
   onShapeSelect: (id: string) => void
   lighting: LightConfig
+  // +++ ADD NEW PROP TYPES +++
+  drawingMode: boolean
+  drawingPath: [number, number][]
+  onGridClick: (point: THREE.Vector3) => void
 }) {
   return (
     <>
@@ -504,9 +533,32 @@ function Scene({
         />
       ))}
 
-      <Grid
+      {/* +++ ADD DRAWING PREVIEW RENDER +++ */}
+      {drawingMode && <DrawingPreview path={drawingPath} />}
+
+      {/* +++ ADD INVISIBLE PLANE FOR DRAWING +++
+  This plane is invisible but catches clicks when in drawing mode,
+  giving us the exact 3D coordinates on the XY plane.
+*/}
+
+      {drawingMode && (
+        <mesh
+          position={[0, 0, 0]}
+          onClick={(e) => {
+            // Prevent click from bubbling up and deselecting shapes
+            e.stopPropagation()
+            if (onGridClick) onGridClick(e.point)
+          }}
+          visible={false} // Make the plane invisible
+        >
+          <planeGeometry args={[100, 100]} />
+          <meshBasicMaterial />
+        </mesh>
+      )}
+     <Grid
         args={[20, 20]}
-        position={[0, -2, 0]}
+        position={[0, 0, -0.01]} // Move grid slightly back
+        rotation={[0, 0, 0]}     // Keep grid on the XY plane
         cellSize={0.5}
         cellThickness={0.5}
         cellColor="#6b7280"
@@ -535,8 +587,9 @@ export function AdvancedShapeBuilder() {
   const [drawingPath, setDrawingPath] = useState<[number, number][]>([])
   const [parametricEquation, setParametricEquation] = useState("sin(x) * cos(y)")
   const [customVertices, setCustomVertices] = useState("")
+  //@ts-ignore
   const controlsRef = useRef<any>()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  // const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const selectedShape = shapes.find((s) => s.id === selectedShapeId)
 
@@ -556,6 +609,7 @@ export function AdvancedShapeBuilder() {
         opacity: 1,
         wireframe: false,
       },
+      //@ts-ignore
       parameters: { ...(template?.defaultParams || {}) },
       name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${shapes.length + 1}`,
     }
@@ -754,15 +808,15 @@ export function AdvancedShapeBuilder() {
     URL.revokeObjectURL(url)
   }
 
-  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!drawingMode || !canvasRef.current) return
+  // const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  //   if (!drawingMode || !canvasRef.current) return
 
-    const rect = canvasRef.current.getBoundingClientRect()
-    const x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-    const y = -(((event.clientY - rect.top) / rect.height) * 2 - 1)
+  //   const rect = canvasRef.current.getBoundingClientRect()
+  //   const x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+  //   const y = -(((event.clientY - rect.top) / rect.height) * 2 - 1)
 
-    setDrawingPath([...drawingPath, [x, y]])
-  }
+  //   setDrawingPath([...drawingPath, [x, y]])
+  // }
 
   const resetView = () => {
     if (controlsRef.current) {
@@ -770,6 +824,20 @@ export function AdvancedShapeBuilder() {
     }
   }
 
+    // +++ ADD NEW onGridClick HANDLER +++
+    const handleGridClick = (point: THREE.Vector3) => {
+      if (!drawingMode) return
+      // Add the x and y coordinates of the click to our drawing path
+      setDrawingPath([...drawingPath, [point.x, point.y]])
+    }
+  
+ // +++ ADD useEffect TO MANAGE CONTROLS +++
+  // This disables camera rotation/panning while drawing, which is more intuitive.
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.enabled = !drawingMode
+    }
+  }, [drawingMode])
   return (
     <div className="space-y-6">
       <Card>
@@ -820,6 +888,9 @@ export function AdvancedShapeBuilder() {
                       selectedShapeId={selectedShapeId}
                       onShapeSelect={setSelectedShapeId}
                       lighting={lighting}
+                      drawingMode={drawingMode}
+                      drawingPath={drawingPath}
+                      onGridClick={handleGridClick}
                     />
                   </Suspense>
                   <OrbitControls
@@ -832,7 +903,7 @@ export function AdvancedShapeBuilder() {
                 </Canvas>
 
                 {/* Drawing overlay for 2D shapes */}
-                {drawingMode && (
+                {/* {drawingMode && (
                   <canvas
                     ref={canvasRef}
                     className="absolute inset-0 z-10 cursor-crosshair"
@@ -844,7 +915,7 @@ export function AdvancedShapeBuilder() {
                       pointerEvents: "auto",
                     }}
                   />
-                )}
+                )} */}
 
                 {/* Instructions overlay */}
                 <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg max-w-xs">
@@ -1142,9 +1213,8 @@ FACES:
                           <button
                             key={color}
                             onClick={() => updateShape(selectedShape.id, { color })}
-                            className={`w-8 h-8 rounded-full border-2 ${
-                              selectedShape.color === color ? "border-gray-800" : "border-gray-300"
-                            }`}
+                            className={`w-8 h-8 rounded-full border-2 ${selectedShape.color === color ? "border-gray-800" : "border-gray-300"
+                              }`}
                             style={{ backgroundColor: color }}
                           />
                         ))}
