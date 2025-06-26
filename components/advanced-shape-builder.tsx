@@ -557,8 +557,7 @@ function Scene({
       )}
      <Grid
         args={[20, 20]}
-        position={[0, 0, -0.01]} // Move grid slightly back
-        rotation={[0, 0, 0]}     // Keep grid on the XY plane
+        position={[0, 0, -0.01]} 
         cellSize={0.5}
         cellThickness={0.5}
         cellColor="#6b7280"
